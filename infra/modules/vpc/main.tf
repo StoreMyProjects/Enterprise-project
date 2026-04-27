@@ -88,15 +88,20 @@ resource "aws_route_table" "private" {
 
   vpc_id = aws_vpc.this.id
 
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.this[each.key].id
+  dynamic "route" {
+    for_each = var.enable_nat_gateway ? [1] : []
+
+    content {
+      cidr_block     = "0.0.0.0/0"
+      nat_gateway_id = aws_nat_gateway.this[each.key].id
+    }
   }
 
   tags = merge(local.common_tags, {
     Name = "${var.name}-private-rt-${each.key}"
   })
 }
+
 # Associations
 resource "aws_route_table_association" "public" {
   for_each = aws_subnet.public
