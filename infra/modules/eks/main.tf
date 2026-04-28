@@ -26,7 +26,7 @@ resource "aws_eks_cluster" "this" {
     subnet_ids = var.private_subnet_ids
     endpoint_private_access = true
     endpoint_public_access  = true
-    public_access_cidrs = ["106.192.139.12/32"]
+    public_access_cidrs = ["106.192.135.44/32"]
   }
 
   tags = var.tags
@@ -62,6 +62,22 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+resource "aws_launch_template" "eks_nodes" {
+  name_prefix = "${var.name}-lt"
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+
+    tags = var.tags
+  }
+}
+
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.name}-node-group"
@@ -75,6 +91,11 @@ resource "aws_eks_node_group" "this" {
   }
 
   instance_types = [var.node_instance_type]
+
+  launch_template {
+    id      = aws_launch_template.eks_nodes.id
+    version = "$Latest"
+  }
 
   tags = var.tags
 }

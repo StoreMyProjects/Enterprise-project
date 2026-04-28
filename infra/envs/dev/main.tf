@@ -38,3 +38,19 @@ module "eks" {
     Owner       = "amrendra"
   }
 }
+
+module "addons" {
+  source = "../../modules/addons"
+
+  cluster_name      = module.eks.cluster_name
+  cluster_endpoint  = module.eks.cluster_endpoint
+  cluster_ca        = module.eks.cluster_ca
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  region            = "ap-south-1"
+
+  tags = {
+    Environment = "dev"
+    Owner       = "amrendra"
+  }
+}
