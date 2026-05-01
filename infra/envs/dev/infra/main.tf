@@ -29,6 +29,12 @@ module "eks" {
   private_subnet_ids = module.vpc.private_subnet_ids
   public_subnet_ids  = module.vpc.public_subnet_ids
 
+  endpoint_public_access = true
+
+  public_access_cidrs = [
+    "106.192.130.208/32"
+  ]
+
   desired_capacity = 2
   max_capacity     = 3
   min_capacity     = 1

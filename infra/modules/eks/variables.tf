@@ -38,3 +38,15 @@ variable "tags" {
   type = map(string)
   default = {}
 }
+
+variable "endpoint_public_access" {
+  description = "Enable public access to EKS API"
+  type        = bool
+  default     = true
+}
+
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access EKS public endpoint"
+  type        = list(string)
+  default     = []
+}
