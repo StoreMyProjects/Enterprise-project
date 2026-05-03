@@ -26,3 +26,18 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "grafana_admin_password" {
+  type = string
+  default = "admin123"
+}
+
+variable "slack_warning_webhook_url" {
+  type      = string
+  sensitive = true
+}
+
+variable "slack_critical_webhook_url" {
+  type      = string
+  sensitive = true
+}

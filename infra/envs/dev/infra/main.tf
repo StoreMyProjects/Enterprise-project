@@ -32,12 +32,12 @@ module "eks" {
   endpoint_public_access = true
 
   public_access_cidrs = [
-    "106.192.130.208/32"
+    "106.192.114.117/32"
   ]
 
-  desired_capacity = 2
-  max_capacity     = 3
-  min_capacity     = 1
+  desired_capacity = 3
+  max_capacity     = 5
+  min_capacity     = 2
 
   tags = {
     Environment = "dev"
