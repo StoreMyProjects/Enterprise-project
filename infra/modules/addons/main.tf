@@ -135,6 +135,12 @@ resource "helm_release" "argocd" {
   
 }
 
+resource "kubernetes_namespace_v1" "monitoring" {
+  metadata {
+    name = "monitoring"
+  }
+}
+
 resource "kubernetes_secret_v1" "alertmanager_config" {
   metadata {
     name      = "alertmanager-config"
@@ -190,7 +196,7 @@ resource "helm_release" "monitoring" {
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
 
-  create_namespace = true
+  create_namespace = false
   timeout          = 600
 
   values = [yamlencode({
@@ -230,4 +236,15 @@ resource "helm_release" "monitoring" {
   depends_on = [
     kubernetes_secret_v1.alertmanager_config
   ]
+}
+
+resource "helm_release" "argo_rollouts" {
+  name       = "argo-rollouts"
+  namespace  = "argo-rollouts"
+
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-rollouts"
+
+  create_namespace = true
+  timeout          = 600
 }
