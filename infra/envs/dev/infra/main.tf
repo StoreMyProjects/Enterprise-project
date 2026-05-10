@@ -32,10 +32,10 @@ module "eks" {
   endpoint_public_access = true
 
   public_access_cidrs = [
-    "106.192.114.117/32"
+    "223.228.138.130/32"
   ]
 
-  desired_capacity = 3
+  desired_capacity = 4
   max_capacity     = 5
   min_capacity     = 2
 
