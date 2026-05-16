@@ -13,6 +13,10 @@ metadata:
     external-dns.alpha.kubernetes.io/hostname: grafana.testpro.in
     alb.ingress.kubernetes.io/backend-protocol: HTTP
 
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
 spec:
   ingressClassName: alb
   rules:
