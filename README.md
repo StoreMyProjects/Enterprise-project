@@ -39,7 +39,8 @@ A production-ready Infrastructure-as-Code repository for provisioning enterprise
 **Custom Domains**: argocd.testpro.in and grafana.testpro.in with ACM SSL/TLS certificates  
 
 ---
-
+![Architecture Diagram](images/architecture.png)
+---
 ## 🏗️ Architecture
 
 The infrastructure follows a three-layer architecture:
