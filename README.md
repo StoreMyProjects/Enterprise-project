@@ -1,609 +1,483 @@
 # Enterprise-project 🚀
 
-A production-ready Infrastructure-as-Code (IaC) repository for provisioning enterprise-grade AWS infrastructure with Kubernetes (EKS) and cloud-native tooling using Terraform.
+A production-ready Infrastructure-as-Code repository for provisioning enterprise-grade AWS infrastructure with Kubernetes (EKS) and cloud-native tooling using Terraform. This project automates the complete deployment of a scalable, monitored, and managed Kubernetes cluster in AWS with GitOps capabilities.
 
 ---
 
 ## 📋 Table of Contents
 
-- [Services Overview](#services-overview)
-- [Data Flow Architecture](#data-flow-architecture)
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Services Deployed](#services-deployed)
+- [Data Flow](#data-flow)
 - [Prerequisites](#prerequisites)
 - [Deployment Steps](#deployment-steps)
-- [Configuration](#configuration)
 - [Accessing Services](#accessing-services)
-- [Project Structure](#project-structure)
+- [Module Details](#module-details)
 - [Cleanup](#cleanup)
 
 ---
 
-## 🔧 Services Overview
+## 🎯 Overview
 
-### AWS Services Used
+**Enterprise-project** provides a complete infrastructure automation solution that deploys:
 
-| Service | Purpose | Module |
-|---------|---------|--------|
-| **VPC** | Virtual Private Cloud with subnets | vpc |
-| **Subnets** | Public & Private subnets across AZs | vpc |
-| **Internet Gateway** | Public internet access | vpc |
-| **NAT Gateway** | Outbound internet for private subnets | vpc |
-| **Route Tables** | Network routing | vpc |
-| **EKS** | Managed Kubernetes cluster | eks |
-| **EC2 Auto Scaling** | Node group scaling | eks |
-| **IAM** | Identity & access management | eks, addons |
-| **ACM** | SSL/TLS certificates for ALB | platform |
-| **ALB** | Application Load Balancer for ingress | addons |
-| **S3** | Terraform state backend | platform |
+- **Networking**: AWS VPC with public and private subnets across multiple availability zones
+- **Kubernetes**: Amazon EKS (Elastic Kubernetes Service) cluster with auto-scaling node groups
+- **Container Networking**: AWS Load Balancer Controller for Ingress management
+- **Storage**: EBS CSI Driver for persistent storage in containers
+- **GitOps**: ArgoCD for continuous deployment workflows
+- **Monitoring**: Prometheus for metrics collection and Grafana for visualization
+- **Progressive Deployments**: Argo Rollouts for advanced deployment strategies
+- **DNS**: ExternalDNS for automatic DNS record management
+- **Alerting**: AlertManager with Slack integration for notifications
 
-### Kubernetes Services Deployed
-
-| Service | Purpose | Namespace |
-|---------|---------|-----------|
-| **AWS Load Balancer Controller** | Manages ALB/NLB for K8s Ingress | kube-system |
-| **EBS CSI Driver** | Persistent storage for pods | kube-system |
-| **Metrics Server** | Pod resource metrics for HPA | kube-system |
-| **ArgoCD** | GitOps continuous deployment | argocd |
-| **Prometheus** | Metrics collection & monitoring | monitoring |
-| **Grafana** | Visualization & dashboards | monitoring |
-| **Argo Rollouts** | Progressive deployments | argo-rollouts |
-| **Alertmanager** | Alert routing (Slack integration) | monitoring |
+**Project Owner**: Amrendra  
+**AWS Region**: Asia Pacific (Mumbai) - ap-south-1  
+**Environment**: Development  
+**Custom Domains**: argocd.testpro.in and grafana.testpro.in with ACM SSL/TLS certificates  
 
 ---
 
-## 🔄 Data Flow Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          AWS Account (ap-south-1)                   │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌────────────────────────────────────────────────────────────────┐ │
-│  │  VPC (10.0.0.0/16)                                             │ │
-│  │                                                                │ │
-│  │  ┌──────────────────┐          ┌──────────────────┐           │ │
-│  │  │ Public Subnet    │          │ Public Subnet    │           │ │
-│  │  │ (ap-south-1a)    │          │ (ap-south-1b)    │           │ │
-│  │  │ 10.0.1.0/24      │          │ 10.0.2.0/24      │           │ │
-│  │  │                  │          │                  │           │ │
-│  │  │ IGW + NAT GW     │          │ NAT GW           │           │ │
-│  │  └──────────────────┘          └──────────────────┘           │ │
-│  │           ↓                              ↓                     │ │
-│  │  ┌──────────────────┐          ┌──────────────────┐           │ │
-│  │  │ Private Subnet   │          │ Private Subnet   │           │ │
-│  │  │ (ap-south-1a)    │          │ (ap-south-1b)    │           │ │
-│  │  │ 10.0.11.0/24     │          │ 10.0.12.0/24     │           │ │
-│  │  │                  │          │                  │           │ │
-│  │  │ EKS Nodes        │          │ EKS Nodes        │           │ │
-│  │  └──────────────────┘          └──────────────────┘           │ │
-│  └────────────────────────────────────────────────────────────────┘ │
-│                                      ↓                              │
-│  ┌────────────────────────────────────────────────────────────────┐ │
-│  │  EKS Cluster (devops-eks)                                      │ │
-│  │  • Control Plane: Managed by AWS                               │ │
-│  │  • Node Groups: 3 nodes (Min: 2, Max: 5)                       │ │
-│  │                                                                │ │
-│  │  ┌────────────────────────────────────────────────────────┐   │ │
-│  │  │  Kubernetes Services & Add-ons                         │   │ │
-│  │  │                                                        │   │ │
-│  │  │  kube-system namespace:                                │   │ │
-│  │  │  ├─ AWS Load Balancer Controller → ALB                │   │ │
-│  │  │  ├─ EBS CSI Driver → Storage                          │   │ │
-│  │  │  └─ Metrics Server → HPA Metrics                      │   │ │
-│  │  │                                                        │   │ │
-│  │  │  argocd namespace:                                     │   │ │
-│  │  │  └─ ArgoCD Server (ClusterIP) → ALB Ingress           │   │ │
-│  │  │                                                        │   │ │
-│  │  │  monitoring namespace:                                 │   │ │
-│  │  │  ├─ Prometheus → Metrics Collection                    │   │ │
-│  │  │  ├─ Grafana (ClusterIP) → ALB Ingress                 │   │ │
-│  │  │  └─ Alertmanager → Slack Webhooks                     │   │ │
-│  │  │                                                        │   │ │
-│  │  │  argo-rollouts namespace:                              │   │ │
-│  │  │  └─ Argo Rollouts → Progressive Deployments           │   │ │
-│  │  └────────────────────────────────────────────────────────┘   │ │
-│  │                                                                │ │
-│  └────────────────────────────────────────────────────────────────┘ │
-│                           ↓                                         │
-│  ┌────────────────────────────────────────────────────────────────┐ │
-│  │  AWS Load Balancer (ALB)                                       │ │
-│  │  • Custom Domain: argocd.yourdomain.com (ACM Cert)             │ │
-│  │  • Custom Domain: grafana.yourdomain.com (ACM Cert)            │ │
-│  │  • Security Groups: Managed by AWS LB Controller               │ │
-│  │  • Target Groups: K8s Services                                 │ │
-│  └────────────────────────────────────────────────────────────────┘ │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-
-Data Flow:
-1. User requests ArgoCD/Grafana → Route53 (DNS) → ALB
-2. ALB terminates SSL/TLS using ACM Certificate
-3. ALB routes to K8s Ingress Controller
-4. Ingress routes to ArgoCD/Grafana Services
-5. Services communicate with pods
-6. Monitoring: Prometheus scrapes metrics → Grafana visualizes
-7. Alerts: Alertmanager routes critical alerts → Slack webhooks
-```
-
----
-
-## 📦 Prerequisites
-
-### Required Tools
-
-```bash
-# Terraform >= 1.0
-terraform --version
-
-# AWS CLI v2
-aws --version
-aws configure
-
-# kubectl
-kubectl version --client
-
-# Helm >= 3.0
-helm version
-
-# jq (optional, for JSON processing)
-jq --version
-```
-
-### AWS Account Requirements
-
-- ✅ VPC, Subnet, Route Table, NAT Gateway creation permissions
-- ✅ EKS cluster and node group management
-- ✅ IAM role and policy creation
-- ✅ S3 bucket access for Terraform state
-- ✅ ACM certificate creation (or existing certificate ARN)
-- ✅ ALB creation and management
-
-### Pre-requisite Setup
-
-1. **AWS Credentials**
-   ```bash
-   aws configure
-   # Enter: Access Key ID, Secret Access Key, Region (ap-south-1)
-   ```
-
-2. **S3 Bucket for Terraform State**
-   ```bash
-   aws s3api create-bucket \
-     --bucket amrendra-terraform-state \
-     --region ap-south-1 \
-     --create-bucket-configuration LocationConstraint=ap-south-1
-   
-   # Enable versioning
-   aws s3api put-bucket-versioning \
-     --bucket amrendra-terraform-state \
-     --versioning-configuration Status=Enabled
-   ```
-
-3. **ACM Certificates (for ArgoCD & Grafana)**
-   ```bash
-   # Request certificate for custom domain
-   aws acm request-certificate \
-     --domain-name argocd.yourdomain.com \
-     --subject-alternative-names grafana.yourdomain.com \
-     --region ap-south-1
-   
-   # Get certificate ARN
-   aws acm list-certificates --region ap-south-1
-   ```
-
----
-
-## 🚀 Deployment Steps
-
-### **Step 1: Clone Repository**
-
-```bash
-git clone https://github.com/StoreMyProjects/Enterprise-project.git
-cd Enterprise-project
-```
-
-### **Step 2: Deploy Infrastructure Layer (VPC + EKS)**
-
-```bash
-cd infra/envs/dev/infra
-
-# Initialize Terraform
-terraform init
-
-# Review planned changes
-terraform plan
-
-# Apply changes (takes ~20-25 minutes)
-terraform apply
-
-# Note the outputs:
-# - vpc_id
-# - private_subnet_ids
-# - cluster_name
-# - cluster_endpoint
-# - oidc_provider_arn
-# - oidc_provider_url
-```
-
-**What gets created:**
-- VPC with 2 public subnets + 2 private subnets
-- Internet Gateway + NAT Gateways
-- EKS cluster "devops-eks"
-- 3 EC2 nodes (Min: 2, Max: 5 auto-scaling)
-- OIDC provider for IRSA
-
-### **Step 3: Update kubeconfig**
-
-```bash
-aws eks update-kubeconfig \
-  --region ap-south-1 \
-  --name devops-eks
-
-# Verify cluster access
-kubectl get nodes
-kubectl get pod -A
-```
-
-### **Step 4: Configure Custom Domains**
-
-Update `infra/envs/dev/platform/argocd-ingress.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: argocd-ingress
-  namespace: argocd
-  annotations:
-    cert-arn: arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/CERT_ID
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
-spec:
-  ingressClassName: alb
-  rules:
-  - host: argocd.yourdomain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: argocd-server
-            port:
-              number: 443
-```
-
-Update `infra/envs/dev/platform/grafana-ingress.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: grafana-ingress
-  namespace: monitoring
-  annotations:
-    cert-arn: arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/CERT_ID
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
-spec:
-  ingressClassName: alb
-  rules:
-  - host: grafana.yourdomain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: kube-prometheus-stack-grafana
-            port:
-              number: 80
-```
-
-### **Step 5: Deploy Platform Layer (Add-ons)**
-
-```bash
-cd ../platform
-
-# Configure Slack webhooks in main.tf:
-# slack_warning_webhook_url = "https://hooks.slack.com/services/..."
-# slack_critical_webhook_url = "https://hooks.slack.com/services/..."
-
-# Initialize Terraform
-terraform init
-
-# Review planned changes
-terraform plan
-
-# Apply changes (takes ~10-15 minutes)
-terraform apply
-```
-
-**What gets created:**
-- AWS Load Balancer Controller
-- EBS CSI Driver
-- Metrics Server
-- ArgoCD with HTTPS (ACM cert)
-- Prometheus + Grafana with HTTPS (ACM cert)
-- Argo Rollouts
-- Alertmanager with Slack integration
-
-### **Step 6: Verify All Services**
-
-```bash
-# Check all namespaces
-kubectl get namespaces
-
-# Check services in kube-system
-kubectl get pods -n kube-system
-
-# Check ArgoCD
-kubectl get pods -n argocd
-kubectl get svc -n argocd
-
-# Check Monitoring
-kubectl get pods -n monitoring
-kubectl get svc -n monitoring
-
-# Check Ingress resources
-kubectl get ingress -A
-```
-
-### **Step 7: Update Route53 (DNS)**
-
-Get ALB DNS name:
-```bash
-kubectl get ingress -A
-# or
-aws elbv2 describe-load-balancers --region ap-south-1
-```
-
-Create Route53 records:
-```bash
-# For ArgoCD
-aws route53 change-resource-record-sets \
-  --hosted-zone-id ZONE_ID \
-  --change-batch '{
-    "Changes": [{
-      "Action": "CREATE",
-      "ResourceRecordSet": {
-        "Name": "argocd.yourdomain.com",
-        "Type": "CNAME",
-        "TTL": 300,
-        "ResourceRecords": [{"Value": "ALB-DNS-NAME"}]
-      }
-    }]
-  }'
-
-# For Grafana
-aws route53 change-resource-record-sets \
-  --hosted-zone-id ZONE_ID \
-  --change-batch '{
-    "Changes": [{
-      "Action": "CREATE",
-      "ResourceRecordSet": {
-        "Name": "grafana.yourdomain.com",
-        "Type": "CNAME",
-        "TTL": 300,
-        "ResourceRecords": [{"Value": "ALB-DNS-NAME"}]
-      }
-    }]
-  }'
-```
-
----
-
-## ⚙️ Configuration
-
-### VPC Configuration
-
-Edit `infra/envs/dev/infra/main.tf`:
-
-```hcl
-module "vpc" {
-  source = "../../../modules/vpc"
-
-  name   = "devops"
-  region = "ap-south-1"
-
-  vpc_cidr = "10.0.0.0/16"
-  azs      = ["ap-south-1a", "ap-south-1b"]
-
-  public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
-  private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
-
-  enable_nat_gateway = true
-
-  tags = {
-    Environment = "dev"
-    Owner       = "amrendra"
-  }
-}
-```
-
-### EKS Configuration
-
-Edit `infra/envs/dev/infra/main.tf`:
-
-```hcl
-module "eks" {
-  source = "../../../modules/eks"
-
-  name   = "devops-eks"
-  region = "ap-south-1"
-
-  desired_capacity = 3    # Current nodes
-  max_capacity     = 5    # Max auto-scaling
-  min_capacity     = 2    # Min nodes
-
-  endpoint_public_access = true
-  public_access_cidrs    = ["106.192.114.117/32"]  # Your IP
-
-  tags = {
-    Environment = "dev"
-    Owner       = "amrendra"
-  }
-}
-```
-
-### ACM Certificate Configuration
-
-Edit `infra/envs/dev/platform/main.tf`:
-
-```hcl
-# Get your certificate ARN
-output "acm_certificate_arn" {
-  value = "arn:aws:acm:ap-south-1:ACCOUNT_ID:certificate/CERT_ID"
-}
-```
-
----
-
-## 🌐 Accessing Services
-
-### ArgoCD
-
-**URL:** https://argocd.yourdomain.com  
-**Default Username:** admin  
-**Password:** Get from:
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d
-```
-
-### Grafana
-
-**URL:** https://grafana.yourdomain.com  
-**Username:** admin  
-**Password:** admin123 (or configured value)
-
-**Pre-configured Dashboards:**
-- Kubernetes Cluster Overview
-- Node Exporter Full
-- Prometheus Overview
-
-### Prometheus
-
-```bash
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
-# Access: http://localhost:9090
-```
-
-### Alertmanager
-
-Alerts route to Slack:
-- ⚠️ **Warnings** → `#alerts-warning`
-- 🚨 **Critical** → `#alerts-critical`
+## 🏗️ Architecture
+
+The infrastructure follows a three-layer architecture:
+
+**Layer 1: Networking (VPC Module)**
+- Creates isolated virtual network environment
+- Provisions public subnets for NAT gateways and internet access
+- Provisions private subnets for Kubernetes node deployment
+- Configures Internet Gateway for public access
+- Deploys NAT Gateways for outbound traffic from private subnets
+- Manages routing tables and network associations
+
+**Layer 2: Kubernetes (EKS Module)**
+- Provisions managed Kubernetes control plane via AWS EKS
+- Creates EC2 node groups with auto-scaling capabilities
+- Configures IAM roles and policies for cluster and nodes
+- Enables OIDC provider for IAM Roles for Service Accounts (IRSA)
+- Implements security group policies
+- Sets up cluster endpoints with public/private access options
+
+**Layer 3: Platform Services (Helm Module)**
+- Deploys AWS Load Balancer Controller for ingress routing
+- Installs EBS CSI Driver for dynamic persistent volumes
+- Configures Prometheus and Grafana for monitoring
+- Deploys ArgoCD for GitOps workflows
+- Installs Argo Rollouts for progressive deployments
+- Configures ExternalDNS for automatic Route53 management
+- Sets up AlertManager with Slack webhooks
+
+**Load Balancing & SSL/TLS**
+- AWS Application Load Balancer terminates HTTPS traffic
+- ACM certificates secure custom domains
+- Ingress resources route traffic to Kubernetes services
+- ALB integrates with AWS LB Controller for automatic provisioning
 
 ---
 
 ## 📁 Project Structure
 
-```
-Enterprise-project/
-├── README.md
-├── .gitignore
-└── infra/
-    ├── modules/
-    │   ├── vpc/          # VPC, subnets, NAT, routes
-    │   ├── eks/          # EKS cluster, nodes, OIDC
-    │   └── addons/       # K8s add-ons, Helm charts
-    └── envs/
-        └── dev/
-            ├── infra/    # VPC + EKS layer
-            └── platform/ # Add-ons + Ingress layer
-```
+Enterprise-project is organized into modular components for reusability and maintainability:
+
+**Root Level**
+- `.gitignore`: Specifies files excluded from version control (Terraform state, override files, credentials)
+- `README.md`: Project documentation
+
+**Infrastructure Directory (`infra/`)**
+Contains all Terraform configurations organized by modules and environments.
+
+**Modules Directory (`infra/modules/`)**
+
+*VPC Module* (`infra/modules/vpc/`)
+- `main.tf`: VPC, subnets, Internet Gateway, NAT Gateways, routing tables
+- `variables.tf`: Input variables for VPC configuration (name, CIDR blocks, AZs, tags)
+- `outputs.tf`: Exports VPC ID, public subnet IDs, private subnet IDs
+- `endpoints.tf`: VPC endpoints configuration
+- `flowlogs.tf`: VPC Flow Logs for network monitoring
+- `security.tf`: Security group definitions
+- `versions.tf`: Terraform and provider versions
+- `.terraform.lock.hcl`: Dependency lock file
+
+*EKS Module* (`infra/modules/eks/`)
+- `main.tf`: EKS cluster, node groups, IAM roles, launch templates, OIDC provider
+- `variables.tf`: Input variables for cluster configuration (name, capacity, instance types, CIDR access)
+- `outputs.tf`: Exports cluster name, endpoint, CA certificate, OIDC provider details
+- `.terraform.lock.hcl`: Dependency lock file
+
+*Helm Module* (`infra/modules/helm/`)
+- `alb-controller.tf`: AWS Load Balancer Controller IAM role and Helm chart deployment
+- `argo-rollouts.tf`: Argo Rollouts Helm chart for progressive deployments
+- `argocd.tf`: ArgoCD Helm chart with service configuration
+- `external-dns.tf`: ExternalDNS IAM role, service account, and Helm chart with Route53 integration
+- `monitoring.tf`: Prometheus and Grafana Helm charts with AlertManager configuration
+- `alb_controller_iam_policy.json`: IAM policy for ALB controller permissions
+- `providers.tf`: Kubernetes and Helm provider configuration
+- `variables.tf`: Input variables for cluster details and credentials
+- `outputs.tf`: Module outputs
+- `.terraform.lock.hcl`: Dependency lock file
+
+**Environments Directory (`infra/envs/`)**
+
+*Development Infrastructure Layer* (`infra/envs/dev/infra/`)
+- `main.tf`: Instantiates VPC and EKS modules with dev environment settings
+- `providers.tf`: AWS provider configuration with S3 backend for state management
+- `outputs.tf`: Re-exports cluster and OIDC provider outputs
+- `.terraform.lock.hcl`: Dependency lock file
+
+*Development Platform Layer* (`infra/envs/dev/platform/`)
+- `main.tf`: Instantiates Helm module with data source to fetch infrastructure layer outputs
+- `providers.tf`: Kubernetes and Helm provider configuration with S3 backend
+- Provides values for Slack webhook URLs and Grafana credentials
+- `.terraform.lock.hcl`: Dependency lock file
+
+**Ingresses Directory (`ingresses/`)**
+
+*ArgoCD Ingress* (`ingresses/argocd-ingress.yaml`)
+- Creates Kubernetes Ingress resource for ArgoCD
+- Configures ALB with ACM certificate for argocd.testpro.in
+- Enables HTTPS redirect and health checks
+- Routes traffic to argocd-server service on port 80
+- Enables External DNS annotation for automatic Route53 registration
+
+*Grafana Ingress* (`ingresses/grafana-ingress.yaml`)
+- Creates Kubernetes Ingress resource for Grafana
+- Configures ALB with ACM certificate for grafana.testpro.in
+- Sets HTTP health check path to /api/health
+- Routes traffic to kube-prometheus-stack-grafana service on port 80
+- Enables External DNS annotation for automatic Route53 registration
+
+---
+
+## 🔧 Services Deployed
+
+### AWS Services
+
+| Service | Purpose | Module |
+|---------|---------|--------|
+| VPC | Virtual Private Cloud networking | vpc |
+| Subnets | Public and private network segmentation | vpc |
+| Internet Gateway | Public internet access | vpc |
+| NAT Gateway | Outbound internet for private resources | vpc |
+| Route Tables | Network routing rules | vpc |
+| EKS | Managed Kubernetes service | eks |
+| EC2 Auto Scaling | Node group capacity management | eks |
+| IAM Roles | Service authentication and authorization | eks, helm |
+| ACM | SSL/TLS certificates for domains | helm |
+| ALB | Application Load Balancer for ingress | helm |
+| S3 | Terraform state backend storage | provider |
+| Route53 | DNS management | external-dns |
+
+### Kubernetes Services
+
+| Service | Purpose | Namespace | Deployment Method |
+|---------|---------|-----------|-------------------|
+| AWS Load Balancer Controller | ALB/NLB provisioning for ingress | kube-system | Helm |
+| EBS CSI Driver | Persistent storage for containers | kube-system | EKS Add-on |
+| Metrics Server | Resource metrics for HPA scaling | kube-system | Helm |
+| ArgoCD | GitOps continuous deployment | argocd | Helm |
+| Prometheus | Metrics collection and storage | monitoring | Helm |
+| Grafana | Metrics visualization and dashboards | monitoring | Helm |
+| AlertManager | Alert routing and aggregation | monitoring | Helm |
+| Argo Rollouts | Progressive deployment orchestration | argo-rollouts | Helm |
+| ExternalDNS | Automatic DNS record management | external-dns | Helm |
+
+---
+
+## 🔄 Data Flow
+
+**User Access Path**
+1. User requests argocd.testpro.in or grafana.testpro.in
+2. DNS query resolves to ALB IP via Route53 (managed by ExternalDNS)
+3. ALB receives request and terminates HTTPS using ACM certificate
+4. ALB routes to appropriate Kubernetes Ingress controller
+5. Ingress controller routes to service based on hostname
+6. Service load balances traffic to application pods
+7. Response flows back through the same path with SSL/TLS encryption
+
+**Monitoring Data Path**
+1. Prometheus scrapes metrics from endpoints across cluster
+2. Pod metrics collected from Metrics Server
+3. Node metrics collected from kubelet
+4. Application metrics collected from instrumented services
+5. Grafana queries Prometheus for visualization
+6. AlertManager evaluates alert rules based on metrics
+7. Critical or warning alerts route to Slack channels
+
+**DNS Management Path**
+1. Ingress resources created with External DNS annotations
+2. ExternalDNS pod watches Ingress resources
+3. ExternalDNS creates/updates Route53 records
+4. ExternalDNS creates TXT records for resource ownership
+
+**GitOps Workflow Path**
+1. Application configurations stored in Git repository
+2. ArgoCD monitors Git repository for changes
+3. ArgoCD detects configuration drift in cluster
+4. ArgoCD applies changes automatically
+5. Argo Rollouts manages progressive deployment strategies
+
+---
+
+## 📋 Prerequisites
+
+**Required Tools**
+- Terraform version 1.0 or higher for infrastructure provisioning
+- AWS CLI v2 for AWS account access and credential management
+- kubectl for Kubernetes cluster interaction
+- Helm version 3.0 or higher for package management
+- jq for JSON parsing (optional but recommended)
+
+**AWS Account Requirements**
+- Permissions to create VPC, subnets, route tables, NAT gateways
+- Permissions to create and manage EKS clusters and node groups
+- Permissions to create and attach IAM roles and policies
+- Permissions to create and manage S3 buckets for Terraform state
+- Permissions to create ACM certificates
+- Permissions to create and configure ALB
+- Permissions to create and manage Route53 hosted zones
+
+**Domain Requirements**
+- A registered domain (testpro.in is configured in this example)
+- Route53 hosted zone for the domain
+- Ability to request ACM certificates for custom subdomains
+
+**S3 State Backend**
+- S3 bucket named "amrendra-terraform-state" in ap-south-1 region
+- Versioning enabled on the bucket
+- Server-side encryption enabled
+- DynamoDB table optional but recommended for state locking
+
+**ACM Certificates**
+- Certificate for argocd.testpro.in
+- Certificate for grafana.testpro.in
+- Both certificates in the ap-south-1 region
+- Certificate ARNs needed for Ingress resources
+
+---
+
+## 🚀 Deployment Steps
+
+### Step 1: Repository Setup
+
+Clone the repository and navigate to the infrastructure layer directory to begin deployment.
+
+### Step 2: Infrastructure Layer Deployment
+
+Navigate to the infrastructure layer environment directory. Initialize Terraform to download required providers and modules. Run plan to review resources that will be created. Execute apply to provision the VPC, EKS cluster, node groups, and OIDC provider. This step typically takes 20-25 minutes to complete.
+
+Outputs from this step include:
+- VPC ID and subnet IDs
+- EKS cluster name and endpoint
+- OIDC provider ARN and URL
+- Cluster CA certificate
+
+Save these outputs as they are required for the platform layer deployment.
+
+### Step 3: Configure Kubernetes Access
+
+Update local kubeconfig to connect to the newly created EKS cluster. Verify cluster connectivity by checking nodes and existing pods. Ensure all nodes are in Ready status before proceeding.
+
+### Step 4: Prepare Custom Domain Configuration
+
+Update the Ingress manifests in the ingresses directory with your custom domain names if different from testpro.in. Ensure ACM certificate ARNs are correct for your environment. Verify the certificate ARNs correspond to the domains in the Ingress resources.
+
+### Step 5: Platform Layer Deployment
+
+Navigate to the platform layer environment directory. Initialize Terraform with the infrastructure layer state. Update Slack webhook URLs in the variables or as Terraform inputs for alerting configuration. Update Grafana admin password if desired (default is admin123). Execute apply to deploy all Kubernetes services and applications. This step typically takes 10-15 minutes to complete.
+
+This deployment includes:
+- AWS Load Balancer Controller
+- EBS CSI Driver
+- Prometheus and Grafana
+- ArgoCD
+- Argo Rollouts
+- ExternalDNS
+- AlertManager with Slack integration
+
+### Step 6: Verify Deployments
+
+Check that all namespaces are created. Verify pods are running in kube-system, argocd, monitoring, argo-rollouts, and external-dns namespaces. Confirm that Ingress resources are created and ALB is provisioned. Check that ExternalDNS has created Route53 records for custom domains.
+
+### Step 7: Access Applications
+
+Once ExternalDNS creates Route53 records, applications become accessible at their custom domains with SSL/TLS encryption. ArgoCD is accessible at argocd.testpro.in. Grafana is accessible at grafana.testpro.in. Default credentials and access instructions are in the "Accessing Services" section.
+
+---
+
+## 🌐 Accessing Services
+
+### ArgoCD (GitOps Platform)
+
+ArgoCD is accessible at https://argocd.testpro.in and provides a web UI for managing continuous deployments.
+
+The default admin username is "admin". The initial password is automatically generated during deployment and must be retrieved from Kubernetes secrets. The interface allows for repository connections, application definitions, and deployment synchronization.
+
+### Grafana (Monitoring Dashboard)
+
+Grafana is accessible at https://grafana.testpro.in and provides visualization of cluster metrics.
+
+The default username is "admin" and the password is "admin123" (or as configured). Pre-configured dashboards are available for Kubernetes cluster overview, node metrics, and pod resource usage. The interface allows for creating custom dashboards, setting up alerting rules, and data source configuration.
+
+### Prometheus (Metrics Database)
+
+Prometheus runs in the monitoring namespace and collects metrics from all cluster components.
+
+Access Prometheus through port-forwarding to query metrics, view scrape targets, and verify metric collection. The database stores 15 days of metrics by default and can be queried using PromQL.
+
+### AlertManager (Alert Routing)
+
+AlertManager routes alerts to Slack channels based on severity.
+
+Warning alerts route to the #alerts-warning channel. Critical alerts route to the #alerts-critical channel. Alerts include notification title, severity level, and affected resource information. Alert routing rules are configured in the AlertManager configuration secret.
+
+### Service Access URLs
+
+All services are secured with ACM SSL/TLS certificates. External DNS automatically creates Route53 records for Ingress resources. Load Balancer Controller provisions AWS ALBs for traffic routing. Each service is accessible via its configured custom domain.
+
+---
+
+## 🔐 Module Details
+
+### VPC Module
+
+The VPC module creates the network foundation for the entire infrastructure. It provisions a VPC with configurable CIDR block and creates subnets across specified availability zones. Public subnets have Internet Gateway access and map public IPs automatically. Private subnets have NAT Gateway access for outbound traffic. The module manages route tables separately for public and private networks with proper associations.
+
+**Key Features**: Multi-AZ deployment, VPC Flow Logs for network monitoring, DNS support enabled, flexible CIDR configuration, optional NAT Gateway deployment.
+
+### EKS Module
+
+The EKS module provisions a managed Kubernetes cluster with production-ready configuration. It creates IAM roles for cluster control plane and node groups with appropriate policies. EC2 node groups use launch templates with IMDSv2 enforcement for security. Auto-scaling is configured with minimum, desired, and maximum capacity. The module creates an OIDC provider for IAM Roles for Service Accounts (IRSA) to enable fine-grained IAM permissions for pods.
+
+**Key Features**: Managed control plane, auto-scaling node groups, OIDC provider for IRSA, IMDSv2 enforcement, security group management, configurable public/private API endpoint access.
+
+### Helm Module
+
+The Helm module deploys all Kubernetes applications and platform services using Helm charts. It manages AWS Load Balancer Controller with IRSA permissions for ALB provisioning. Prometheus is deployed with node exporters and service monitors. Grafana is configured with admin credentials and Prometheus data source. ArgoCD is deployed in insecure mode with ClusterIP service (accessed via Ingress). AlertManager is configured with Slack webhook URLs for notifications. ExternalDNS is configured with Route53 provider and domain filters. Argo Rollouts enables advanced deployment strategies like canary and blue-green deployments.
+
+**Key Features**: IRSA for all AWS-integrated services, namespace management, service account creation, role-based access control, configurable values for each service, dependency management between services.
 
 ---
 
 ## 🧹 Cleanup
 
-To destroy all infrastructure (⚠️ **Irreversible**):
+To remove all infrastructure and services from AWS (this action is irreversible):
 
-```bash
-# Destroy add-ons first
-cd infra/envs/dev/platform
-terraform destroy
+First, destroy the platform layer services by navigating to the platform environment directory and executing terraform destroy. This removes all Kubernetes applications, services, and the ALB.
 
-# Then destroy infrastructure
-cd ../infra
-terraform destroy
+Then, destroy the infrastructure layer by navigating to the infrastructure environment directory and executing terraform destroy. This removes the EKS cluster, node groups, VPC, subnets, and all networking resources.
 
-# Remove kubeconfig entry
-kubectl config delete-context arn:aws:eks:ap-south-1:ACCOUNT_ID:cluster/devops-eks
-```
+Finally, remove local kubeconfig entries for the cluster to clean up local configuration.
+
+**Estimated Cleanup Time**: 15-20 minutes total
+
+**Important Notes**: Ensure all data is backed up before cleanup. Persistent volumes may be retained if deletion protection is enabled. Load balancer may take time to fully delete. AWS charges continue until resources are completely removed.
 
 ---
 
-## 📊 Estimated Costs (Monthly)
+## 📊 Estimated AWS Costs
 
-| Component | Cost |
-|-----------|------|
-| 3x t3.medium EC2 nodes | $45 |
-| NAT Gateway (data processing) | $32 |
-| ALB | $16 |
-| EBS storage (30GB) | $3 |
-| Data transfer (out) | $5 |
-| **Total (Approximate)** | **~$100** |
+| Component | Estimated Monthly Cost |
+|-----------|------------------------|
+| 3 × t3.small EC2 nodes | 45 USD |
+| NAT Gateway (1 per AZ) | 32 USD |
+| Application Load Balancer | 16 USD |
+| EBS storage (30 GB) | 3 USD |
+| Data transfer (100 GB out) | 5 USD |
+| **Approximate Total** | **101 USD** |
+
+Note: Costs vary by region, usage patterns, and AWS pricing changes. Use AWS Pricing Calculator for accurate estimates based on your specific configuration.
 
 ---
 
-## 🔒 Security Best Practices
+## 🔒 Security Considerations
 
-✅ **Implemented:**
-- Private subnets for EKS nodes
-- IMDSv2 enforced on EC2 instances
-- OIDC provider for IRSA
-- ALB with ACM SSL/TLS certificates
-- VPC Flow Logs
+**Implemented Security Features**
+- Private subnets for EKS node groups (no direct internet exposure)
+- IMDSv2 enforced on EC2 instances (prevents metadata service attacks)
+- OIDC provider for IRSA (fine-grained IAM permissions for pods)
+- ALB with ACM SSL/TLS certificates (encrypted traffic)
+- VPC Flow Logs enabled (network monitoring)
+- Security groups restrict traffic to required ports only
+- Sensitive variables marked as sensitive in Terraform
 
-⚠️ **Additional Recommendations:**
-- Enable EKS audit logging
-- Use AWS Secrets Manager for sensitive data
-- Implement network policies
-- Use Pod Security Policies
-- Enable container image scanning
-- Regular backup of Kubernetes resources
+**Recommended Additional Security Measures**
+- Enable EKS audit logging to CloudWatch
+- Use AWS Secrets Manager for credential management
+- Implement Kubernetes network policies
+- Enable Pod Security Policies
+- Use container image scanning in ECR
+- Implement RBAC for cluster access
+- Enable encryption at rest for persistent volumes
+- Use private hosted zones in Route53
+- Implement WAF rules on ALB
+- Enable GuardDuty for threat detection
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Nodes not ready
-```bash
-kubectl describe nodes
-kubectl logs -n kube-system -l k8s-app=aws-node
-```
+**Cluster Access Issues**
+- Verify kubeconfig is updated correctly
+- Check AWS credentials and permissions
+- Verify public access CIDR blocks allow your IP
+- Check security groups for proper inbound rules
 
-### ALB not creating
-```bash
-kubectl logs -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
-```
+**Ingress Not Creating ALB**
+- Verify AWS Load Balancer Controller is running
+- Check controller logs for errors
+- Verify IAM permissions for controller role
+- Check Ingress annotations are correct
 
-### ArgoCD/Grafana not accessible
-```bash
-kubectl get ingress -A
-kubectl describe ingress -n argocd argocd-ingress
-```
+**Pods Not Reaching Internet**
+- Verify NAT Gateway is deployed and healthy
+- Check route tables have proper routes
+- Verify security group rules allow egress
+- Check node IAM role has required permissions
 
-### Slack alerts not working
-```bash
-kubectl describe secret -n monitoring alertmanager-config
-kubectl logs -n monitoring alertmanager-0
-```
+**DNS Not Resolving**
+- Verify ExternalDNS pod is running
+- Check ExternalDNS logs for Route53 API errors
+- Verify hosted zone ID is correct
+- Check Route53 records were created
+- Verify TTL settings in DNS configuration
+
+**Monitoring Data Missing**
+- Verify Prometheus pod is running
+- Check scrape targets in Prometheus UI
+- Verify service monitors are created
+- Check node exporter pods are running
+- Verify network policies allow traffic
+
+**Slack Alerts Not Working**
+- Verify webhook URLs are correct and active
+- Check AlertManager pod logs
+- Verify alert rules are firing
+- Check Slack channel permissions
+- Verify firewall allows outbound HTTPS
 
 ---
 
-## 📧 Support & Contributions
+## 📧 Support & Documentation
 
-**Project Owner:** Amrendra  
-**Region:** AWS Asia Pacific (Mumbai) - ap-south-1  
-**Environment:** Development  
+**Project Information**
+- Owner: Amrendra
+- Region: AWS Asia Pacific (Mumbai) - ap-south-1
+- Environment: Development
+- Repository: https://github.com/StoreMyProjects/Enterprise-project
 
-For issues or questions, review logs and check Terraform state files.
+**Documentation References**
+- Terraform: https://www.terraform.io/docs
+- AWS EKS: https://docs.aws.amazon.com/eks/
+- Kubernetes: https://kubernetes.io/docs/
+- ArgoCD: https://argo-cd.readthedocs.io/
+- Prometheus: https://prometheus.io/docs/
+- Grafana: https://grafana.com/docs/
+- Helm: https://helm.sh/docs/
 
 ---
 
-**Last Updated:** May 10, 2026  
-**Repository:** https://github.com/StoreMyProjects/Enterprise-project
+**Last Updated**: May 10, 2026  
+**Repository Status**: Active  
+**License**: Private - All Rights Reserved
