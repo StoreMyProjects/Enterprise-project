@@ -25,6 +25,9 @@ module "helm" {
   oidc_provider_arn = data.terraform_remote_state.infra.outputs.oidc_provider_arn
   oidc_provider_url = data.terraform_remote_state.infra.outputs.oidc_provider_url
   region            = "ap-south-1"
+  vpc_id         = data.terraform_remote_state.infra.outputs.vpc_id
+  private_subnets = data.terraform_remote_state.infra.outputs.private_subnet_ids
+  cluster_security_group_id = data.terraform_remote_state.infra.outputs.cluster_security_group_id
 
   slack_warning_webhook_url = "https://hooks.slack.com/services/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"
   slack_critical_webhook_url = "https://hooks.slack.com/services/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"
