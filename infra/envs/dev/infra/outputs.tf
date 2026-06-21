@@ -29,3 +29,15 @@ output "private_subnet_ids" {
 output "cluster_security_group_id" {
   value = module.eks.cluster_security_group_id
 }
+
+output "redis_primary_endpoint" {
+  value = module.redis.redis_primary_endpoint
+}
+
+output "redis_reader_endpoint" {
+  value = module.redis.redis_reader_endpoint
+}
+
+output "redis_port" {
+  value = module.redis.redis_port
+}
