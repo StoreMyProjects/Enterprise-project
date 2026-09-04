@@ -5,6 +5,7 @@ resource "random_password" "redis_auth_token" {
 
 resource "aws_secretsmanager_secret" "redis" {
   name = "redis-secrets"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "redis" {
@@ -29,11 +30,11 @@ resource "aws_security_group" "redis" {
 
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id = "exploreexpeditions-redis"
-  description = "Application Redis"
+  description          = "Application Redis"
 
-  node_type = "cache.t4g.micro"
-  num_cache_clusters = 1
-  engine = "redis"
+  node_type            = "cache.t4g.micro"
+  num_cache_clusters   = 1
+  engine               = "redis"
   parameter_group_name = "default.redis7"
 
   subnet_group_name = aws_elasticache_subnet_group.redis.name
@@ -51,10 +52,10 @@ resource "aws_elasticache_replication_group" "redis" {
 resource "aws_security_group_rule" "eks_to_redis" {
   type = "ingress"
 
-  protocol = "tcp"
+  protocol  = "tcp"
   from_port = 6379
   to_port   = 6379
 
-  security_group_id = aws_security_group.redis.id
-  source_security_group_id = var.cluster_security_group_id
+  security_group_id        = aws_security_group.redis.id
+  source_security_group_id = var.node_security_group_id
 }

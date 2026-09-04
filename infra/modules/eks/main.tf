@@ -18,15 +18,72 @@ resource "aws_iam_role_policy_attachment" "cluster_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
+resource "aws_security_group" "cluster" {
+  name        = "${var.name}-cluster-sg"
+  description = "Security group for the EKS control plane"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = var.tags
+}
+
+resource "aws_security_group" "node" {
+  name        = "${var.name}-node-sg"
+  description = "Security group for EKS worker nodes used by managed node groups and Karpenter"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description = "Allow node-to-node communication"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+
+  ingress {
+    description     = "Allow control plane to node kubelet"
+    from_port       = 1025
+    to_port         = 65535
+    protocol        = "tcp"
+    security_groups = [aws_security_group.cluster.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = var.tags
+}
+
+resource "aws_security_group_rule" "cluster_ingress_from_nodes" {
+  description              = "Allow nodes to communicate with the EKS control plane"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.cluster.id
+  source_security_group_id = aws_security_group.node.id
+}
+
 resource "aws_eks_cluster" "this" {
   name     = var.name
   role_arn = aws_iam_role.eks_cluster.arn
 
   vpc_config {
-    subnet_ids = var.private_subnet_ids
+    subnet_ids              = var.private_subnet_ids
+    security_group_ids      = [aws_security_group.cluster.id]
     endpoint_private_access = true
     endpoint_public_access  = var.endpoint_public_access
-    public_access_cidrs = var.public_access_cidrs
+    public_access_cidrs     = var.public_access_cidrs
   }
 
   tags = var.tags
@@ -64,6 +121,11 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
 
 resource "aws_launch_template" "eks_nodes" {
   name_prefix = "${var.name}-lt"
+
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups             = [aws_security_group.node.id]
+  }
 
   metadata_options {
     http_endpoint               = "enabled"

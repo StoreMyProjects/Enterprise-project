@@ -51,6 +51,9 @@ resource "helm_release" "alb_controller" {
   chart      = "aws-load-balancer-controller"
   namespace  = "kube-system"
 
+  wait    = true
+  timeout = 600
+
   depends_on = [kubernetes_service_account_v1.alb]
 
   set = [

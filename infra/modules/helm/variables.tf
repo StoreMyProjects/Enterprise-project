@@ -22,13 +22,18 @@ variable "region" {
   type = string
 }
 
+variable "node_security_group_id" {
+  type        = string
+  description = "Security group ID used by Karpenter-managed worker nodes"
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
 }
 
 variable "grafana_admin_password" {
-  type = string
+  type    = string
   default = "admin123"
 }
 

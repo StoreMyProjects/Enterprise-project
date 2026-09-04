@@ -1,11 +1,11 @@
 
 resource "helm_release" "external_secrets" {
-  name       = "external-secrets"
-  namespace  = "external-secrets"
+  name             = "external-secrets"
+  namespace        = "external-secrets"
   create_namespace = true
 
   repository = "https://charts.external-secrets.io"
-  chart = "external-secrets"
+  chart      = "external-secrets"
 
   timeout = 600
 }
@@ -41,8 +41,8 @@ resource "aws_iam_role_policy_attachment" "external_secrets" {
 }
 
 resource "aws_eks_pod_identity_association" "external_secrets" {
-  cluster_name = var.cluster_name
-  namespace = "external-secrets"
+  cluster_name    = var.cluster_name
+  namespace       = "external-secrets"
   service_account = "external-secrets"
 
   role_arn = aws_iam_role.external_secrets.arn

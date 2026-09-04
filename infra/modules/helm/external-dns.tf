@@ -72,8 +72,8 @@ resource "aws_eks_pod_identity_association" "external_dns" {
 }
 
 resource "helm_release" "external_dns" {
-  name       = "external-dns"
-  namespace  = "external-dns"
+  name      = "external-dns"
+  namespace = "external-dns"
 
   repository = "https://kubernetes-sigs.github.io/external-dns/"
   chart      = "external-dns"

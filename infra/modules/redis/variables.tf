@@ -13,3 +13,8 @@ variable "private_subnets" {
 variable "cluster_security_group_id" {
   type = string
 }
+
+variable "node_security_group_id" {
+  type        = string
+  description = "Security group used by EKS worker nodes and application pods"
+}

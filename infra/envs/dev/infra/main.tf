@@ -1,7 +1,7 @@
 module "vpc" {
   source = "../../../modules/vpc"
 
-  name = "devops"
+  name   = "devops"
   region = "ap-south-1"
 
   vpc_cidr = "10.0.0.0/16"
@@ -22,17 +22,17 @@ module "vpc" {
 module "eks" {
   source = "../../../modules/eks"
 
-  name = "devops-eks"
+  name   = "devops-eks"
   region = "ap-south-1"
 
-  vpc_id = module.vpc.vpc_id
+  vpc_id             = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
   public_subnet_ids  = module.vpc.public_subnet_ids
 
   endpoint_public_access = true
 
   public_access_cidrs = [
-    "106.192.212.193/32"
+    "<ip-address>/32"
   ]
 
   desired_capacity = 5
@@ -48,9 +48,9 @@ module "eks" {
 module "redis" {
   source = "../../../modules/redis"
 
-  cluster_name = module.eks.cluster_name
-  vpc_id         = module.vpc.vpc_id
-  private_subnets = module.vpc.private_subnet_ids
+  cluster_name              = module.eks.cluster_name
+  vpc_id                    = module.vpc.vpc_id
+  private_subnets           = module.vpc.private_subnet_ids
   cluster_security_group_id = module.eks.cluster_security_group_id
-  
+  node_security_group_id    = module.eks.node_security_group_id
 }
