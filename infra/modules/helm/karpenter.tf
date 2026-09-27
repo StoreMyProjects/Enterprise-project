@@ -1,3 +1,7 @@
+data "aws_iam_role" "karpenter_node_group" {
+  name = var.node_group_role_name
+}
+
 resource "aws_iam_policy" "karpenter_controller" {
   name = "KarpenterControllerPolicy"
 
@@ -37,12 +41,25 @@ resource "aws_iam_policy" "karpenter_controller" {
         Action = [
           "iam:PassRole"
         ],
-        Resource = "*",
+        Resource = data.aws_iam_role.karpenter_node_group.arn,
         Condition = {
           StringEquals = {
             "iam:PassedToService" = "ec2.amazonaws.com"
           }
         }
+      },
+      {
+        Sid    = "ManageKarpenterInstanceProfiles"
+        Effect = "Allow"
+        Action = [
+          "iam:AddRoleToInstanceProfile",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:TagInstanceProfile"
+        ]
+        Resource = "arn:aws:iam::*:instance-profile/${var.cluster_name}_*"
       },
       {
         Sid    = "InterruptionQueue"
@@ -161,11 +178,10 @@ resource "helm_release" "karpenter" {
 
 resource "kubectl_manifest" "karpenter_node_pool" {
   yaml_body = yamlencode({
-    apiVersion = "karpenter.sh/v1beta1"
+    apiVersion = "karpenter.sh/v1"
     kind       = "NodePool"
     metadata = {
-      name      = "default"
-      namespace = "karpenter"
+      name = "default"
     }
     spec = {
       template = {
@@ -198,40 +214,46 @@ resource "kubectl_manifest" "karpenter_node_pool" {
             }
           ]
           nodeClassRef = {
-            apiGroup = "karpenter.k8s.aws"
-            kind     = "EC2NodeClass"
-            name     = "default"
+            group = "karpenter.k8s.aws"
+            kind  = "EC2NodeClass"
+            name  = "default"
           }
         }
       }
       limits = {
-        cpu = "1000"
+        cpu = "4"
       }
       disruption = {
-        consolidationPolicy = "WhenUnderutilized"
+        consolidationPolicy = "WhenEmptyOrUnderutilized"
+        consolidateAfter    = "1m"
         expireAfter         = "168h"
       }
     }
   })
 
-  depends_on = [helm_release.karpenter]
+  depends_on = [
+    helm_release.karpenter,
+    kubectl_manifest.karpenter_node_class
+  ]
 }
 
 resource "kubectl_manifest" "karpenter_node_class" {
   yaml_body = yamlencode({
-    apiVersion = "karpenter.k8s.aws/v1beta1"
+    apiVersion = "karpenter.k8s.aws/v1"
     kind       = "EC2NodeClass"
     metadata = {
       name = "default"
     }
     spec = {
-      amiFamily = "AL2"
-      role      = "KarpenterNodeRole"
-      subnetSelectorTerms = [{
-        tags = {
-          "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-        }
+      amiSelectorTerms = [{
+        alias = "al2023@latest"
       }]
+      role = var.node_group_role_name
+      subnetSelectorTerms = [
+        for subnet_id in var.private_subnet_ids : {
+          id = subnet_id
+        }
+      ]
       securityGroupSelectorTerms = [{
         id = var.node_security_group_id
       }]

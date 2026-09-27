@@ -34,6 +34,7 @@ output "node_security_group_id" {
   value = module.eks.node_security_group_id
 }
 
+
 output "redis_primary_endpoint" {
   value = module.redis.redis_primary_endpoint
 }

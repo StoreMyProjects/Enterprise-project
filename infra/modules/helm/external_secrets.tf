@@ -8,6 +8,8 @@ resource "helm_release" "external_secrets" {
   chart      = "external-secrets"
 
   timeout = 600
+
+  depends_on = [helm_release.alb_controller]
 }
 
 resource "aws_iam_policy" "external_secrets" {

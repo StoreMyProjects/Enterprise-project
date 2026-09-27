@@ -27,6 +27,16 @@ variable "node_security_group_id" {
   description = "Security group ID used by Karpenter-managed worker nodes"
 }
 
+variable "private_subnet_ids" {
+  type        = list(string)
+  description = "Private subnet IDs available to Karpenter"
+}
+
+variable "node_group_role_name" {
+  type        = string
+  description = "IAM role name assigned to Karpenter-provisioned nodes"
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
