@@ -23,6 +23,7 @@ resource "aws_iam_policy" "karpenter_controller" {
           "ec2:DescribeInstanceTypeOfferings",
           "ec2:DescribeAvailabilityZones",
           "ec2:DescribeSpotPriceHistory",
+          "ec2:TerminateInstances",
           "ec2:CreateTags",
           "ec2:DeleteLaunchTemplate",
           "ec2:CreateLaunchTemplate",
